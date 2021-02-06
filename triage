@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -e
+set +x
+
+srcdir=$(readlink -f "$1" || true)
+dstdir=$(readlink -f "$2" || true)
+
+triage_file()
+{
+    if [ -f "$1" ]
+    then
+        if [ -d "$2" ]
+        then
+            parent=$(dirname "$1")
+            if [ ! -d "$2/$3/$parent" ]
+            then
+                mkdir -p "$2/$3/$parent"
+            fi
+            echo "[$3] $1:"
+            pv "$1" > "$2/$3/$1"
+        fi
+    fi
+}
+export -f triage_file
+
+if [ "$#" -ne 2 ] || [ ! -d "$srcdir" ] || [ ! -d "$dstdir" ]
+then
+    echo "Usage: triage [srcdir] [dstdir]"
+    echo "    srcdir: Triage source folder"
+    echo "    dstdir: Triage destination folder"
+else
+    if [ -d "$srcdir/Windows" ]
+    then
+        echo "Creating Windows triage image at location \"$dstdir\" from source \"$srcdir\""
+        
+        pushd "$srcdir"
+        find . -iname "*.log" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"General Logs\"" \;
+        find . \( -iname "*.evt" -o -iname "*.evtx" \) -type f \
+            -exec sh -c "triage_file \"{}\" \"$dstdir\" \"Events\"" \;
+        find . -iwholename "*/tasks/*" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"Tasks\"" \;
+        find . -iwholename "*/prefetch/*" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"Prefetch\"" \;
+        find . -iwholename "*/appcompat/programs/*" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"AppCompat\"" \;
+        find . -iwholename "*/system32/drivers/etc/hosts" -type f \
+            -exec sh -c "triage_file \"{}\" \"$dstdir\" \"System Settings\"" \;
+        find . \( \( -iwholename "*/system32/config/*" -a ! -iwholename "*/system32/config/*/*" \) -o \
+            \( -iwholename "*/users/*/ntuser.dat*" -o -iwholename "*/users/*/usrclass.dat*" \) \) -type f \
+            -exec sh -c "triage_file \"{}\" \"$dstdir\" \"Registry\"" \;
+        find . -iwholename "*/users/*/appdata/*" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"User Settings\"" \;
+        find . \( -iname "hiberfil.sys" -o -iname "pagefile.sys" -o -iname "swapfile.sys" \) -type f \
+            -exec sh -c "triage_file \"{}\" \"$dstdir\" \"RAM\"" \;
+        popd
+        
+        echo "done."
+    elif [ -d "$srcdir/root" ]
+    then
+        echo "Creating Linux triage image at location \"$dstdir\" from source \"$srcdir\""
+        
+        pushd "$srcdir"
+        find . \( -iname ".*" -o -iwholename "*/.*/*" \) -type f \
+            -exec sh -c "triage_file \"{}\" \"$dstdir\" \"User Settings\"" \;
+        find . \( -iname "*.conf" -o \( -iwholename "*/etc/*" -a ! -iwholename "*/etc/*/*" \) \) -type f \
+            -exec sh -c "triage_file \"{}\" \"$dstdir\" \"System Settings\"" \;
+        find . \( -iname "*.log" -o -iwholename "*/var/log/*" \) -type f \
+            -exec sh -c "triage_file \"{}\" \"$dstdir\" \"General Logs\"" \;
+        find . -iwholename "*/root/*" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"Root Folder\"" \;
+        popd
+
+        echo "done."
+    else
+        echo "Unknown triage source"
+    fi
+fi
