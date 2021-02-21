@@ -42,13 +42,15 @@ else
         find . -iwholename "*/appcompat/programs/*" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"AppCompat\"" \;
         find . -iwholename "*/system32/drivers/etc/hosts" -type f \
             -exec sh -c "triage_file \"{}\" \"$dstdir\" \"System Settings\"" \;
-        find . \( \( -iwholename "*/system32/config/*" -a ! -iwholename "*/system32/config/*/*" \) -o \
-            \( -iwholename "*/users/*/ntuser.dat*" -o -iwholename "*/users/*/usrclass.dat*" \) \) -type f \
+        find . \( -iwholename "*/system32/config/sam" -o -iwholename "*/system32/config/sam.*" \
+            -o -iwholename "*/system32/config/security" -o -iwholename "*/system32/config/security.*" \
+            -o -iwholename "*/system32/config/software" -o -iwholename "*/system32/config/software.*" \
+            -o -iwholename "*/system32/config/system" -o -iwholename "*/system32/config/system.*" \
+            -o -iwholename "*/users/*/ntuser.dat" -o -iwholename "*/users/*/ntuser.dat.*" \
+            -o -iwholename "*/users/*/usrclass.dat" -o -iwholename "*/users/*/usrclass.dat.*" \) -type f \
             -exec sh -c "triage_file \"{}\" \"$dstdir\" \"Registry\"" \;
         pushd "$dstdir/Registry"
-            find . \( -iname "sam" -o -iname "security" -o -iname "software" \
-                -o -iname "system" -o -iname "ntuser.dat" -o -iname "usrclass.dat" \) -type f \
-                -exec sh -c "regdrop \"{}\"" \;
+            find . -type f -exec sh -c "regdrop \"{}\"" \;
         popd
         find . -iwholename "*/users/*/appdata/*" -type f -exec sh -c "triage_file \"{}\" \"$dstdir\" \"User Settings\"" \;
         find . \( -iname "hiberfil.sys" -o -iname "pagefile.sys" -o -iname "swapfile.sys" \) -type f \
